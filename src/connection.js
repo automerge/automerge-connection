@@ -1,5 +1,5 @@
 const { Map, fromJS } = require('immutable')
-const Automerge = require('automerge')
+const Automerge = require('../node_modules/automerge/src/automerge')
 
 // Updates the vector clock for `docId` in `clockMap` (mapping from docId to vector clock)
 // by merging in the new vector clock `clock`. Returns the updated `clockMap`, in which each node's
@@ -67,10 +67,10 @@ class Connection {
   maybeSendChanges (docId) {
     const doc = this._docSet.getDoc(docId)
     const state = Automerge.Frontend.getBackendState(doc)
-    const clock = state.getIn(['opSet', 'clock'])
+    const clock = fromJS(Automerge.Backend.getClock(state))
 
     if (this._theirClock.has(docId)) {
-      const changes = Automerge.Backend.getMissingChanges(state, this._theirClock.get(docId))
+      const changes = Automerge.Backend.getChanges(state, this._theirClock.get(docId).toJS())
       if (changes.length > 0) {
         this._theirClock = clockUnion(this._theirClock, docId, clock)
         this.sendMsg(docId, clock, changes)
@@ -84,13 +84,13 @@ class Connection {
   // Callback that is called by the docSet whenever a document is changed
   docChanged (docId, doc) {
     const state = Automerge.Frontend.getBackendState(doc)
-    const clock = state.getIn(['opSet', 'clock'])
+    const clock = Automerge.Backend.getClock(state)
     if (!clock) {
       throw new TypeError('This object cannot be used for network sync. ' +
                           'Are you trying to sync a snapshot from the history?')
     }
 
-    if (!lessOrEqual(this._ourClock.get(docId, Map()), clock)) {
+    if (!lessOrEqual(this._ourClock.get(docId, Map()), fromJS(clock))) {
       throw new RangeError('Cannot pass an old state object to a connection')
     }
 

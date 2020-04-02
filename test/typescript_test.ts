@@ -11,7 +11,7 @@ describe('TypeScript support', () => {
     let beforeDoc: BirdList
     let afterDoc: BirdList
     let docSet: Connection.DocSet<BirdList>
-    let changes: Automerge.Change[]
+    let changes: Uint8Array[]
     let callback: Connection.DocSetHandler<BirdList>
     const ID = '1'
 
@@ -58,7 +58,7 @@ describe('TypeScript support', () => {
     let beforeDoc: BirdList
     let afterDoc: BirdList
     let watchDoc: Connection.WatchableDoc<BirdList>
-    let changes: Automerge.Change[]
+    let changes: Uint8Array[]
     let callback: Connection.WatchableDocHandler<BirdList>
 
     beforeEach(() => {

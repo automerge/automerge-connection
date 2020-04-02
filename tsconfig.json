@@ -7,10 +7,10 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "noImplicitAny": true,
-    "paths": { "*": ["src/*", "*"] },
+    "paths": { "*": ["src/*", "*"], "automerge": ["./node_modules/automerge/src/automerge"] },
     "rootDir": "",
     "target": "es2016",
-    "typeRoots": ["./@types", "./node_modules/@types"]
+    "typeRoots": ["./@types", "./node_modules/@types", "./node_modules/automerge/@types"]
   },
   "exclude": ["dist/**/*"]
 }

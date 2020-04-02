@@ -1,5 +1,5 @@
 const { Map, Set } = require('immutable')
-const Automerge = require('automerge')
+const Automerge = require('../node_modules/automerge/src/automerge')
 
 class DocSet {
   constructor () {

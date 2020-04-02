@@ -1,5 +1,5 @@
 const { Set } = require('immutable')
-const Automerge = require('automerge')
+const Automerge = require('../node_modules/automerge/src/automerge')
 
 class WatchableDoc {
   constructor (doc) {
