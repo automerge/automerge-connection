@@ -1,11 +1,10 @@
-const { Set } = require('immutable')
 const Automerge = require('../node_modules/automerge/src/automerge')
 
 class WatchableDoc {
   constructor (doc) {
     if (!doc) throw new Error("doc argument is required")
     this.doc = doc
-    this.handlers = Set()
+    this.handlers = []
   }
 
   get () {
@@ -14,7 +13,7 @@ class WatchableDoc {
 
   set (doc) {
     this.doc = doc
-    this.handlers.forEach(handler => handler(doc))
+    for (let handler of this.handlers) handler(doc)
   }
 
   applyChanges (changes) {
@@ -24,11 +23,11 @@ class WatchableDoc {
   }
 
   registerHandler (handler) {
-    this.handlers = this.handlers.add(handler)
+    this.handlers.push(handler)
   }
 
   unregisterHandler (handler) {
-    this.handlers = this.handlers.remove(handler)
+    this.handlers = this.handlers.filter(h => h !== handler)
   }
 }
 

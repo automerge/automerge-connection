@@ -20,8 +20,7 @@
   "homepage": "https://github.com/automerge/automerge-connection",
   "license": "MIT",
   "dependencies": {
-    "automerge": "git+https://github.com/automerge/automerge.git#performance",
-    "immutable": "^3.8.2"
+    "automerge": "git+https://github.com/automerge/automerge.git#performance"
   },
   "devDependencies": {
     "@types/mocha": "^7.0.2",

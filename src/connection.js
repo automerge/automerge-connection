@@ -1,23 +1,33 @@
-const { Map, fromJS } = require('immutable')
 const Automerge = require('../node_modules/automerge/src/automerge')
 
-// Updates the vector clock for `docId` in `clockMap` (mapping from docId to vector clock)
-// by merging in the new vector clock `clock`. Returns the updated `clockMap`, in which each node's
-// sequence number has been set to the maximum for that node.
+// Updates the vector clock for `docId` in `clockMap` (mapping from docId to
+// vector clock) by merging in the new vector clock `clock` (taking the
+// element-wise maximum).
 function clockUnion(clockMap, docId, clock) {
-  clock = clockMap.get(docId, Map()).mergeWith((x, y) => Math.max(x, y), clock)
-  return clockMap.set(docId, clock)
+  const newClock = Object.assign({}, clockMap[docId])
+  for (let [key, value] of Object.entries(clock)) {
+    if (!newClock[key] || newClock[key] < value) newClock[key] = value
+  }
+  clockMap[docId] = newClock
+}
+
+// Returns true if all components of `clock1` equal those of `clock2`.
+function clockEqual(clock1, clock2) {
+  for (let key of Object.keys(clock1).concat(Object.keys(clock2))) {
+    if (clock1[key] !== clock2[key]) return false
+  }
+  return true
 }
 
 // Returns true if all components of `clock1` are less than or equal to those
-// of `clock2` (both clocks given as Immutable.js Map objects). Returns false
-// if there is at least one component in which `clock1` is greater than
-// `clock2` (that is, either `clock1` is overall greater than `clock2`, or the
-// clocks are incomparable).
+// of `clock2`. Returns false if there is at least one component in which
+// `clock1` is greater than `clock2` (that is, either `clock1` is overall
+// greater than `clock2`, or the clocks are incomparable).
 function lessOrEqual(clock1, clock2) {
-  return clock1.keySeq().concat(clock2.keySeq()).reduce(
-    (result, key) => (result && clock1.get(key, 0) <= clock2.get(key, 0)),
-    true)
+  for (let [key, value] of Object.entries(clock1)) {
+    if (value > 0 && (!clock2[key] || clock2[key] < value)) return false
+  }
+  return true
 }
 
 // Keeps track of the communication with one particular peer. Allows updates for many documents to
@@ -43,8 +53,8 @@ class Connection {
   constructor (docSet, sendMsg) {
     this._docSet = docSet
     this._sendMsg = sendMsg
-    this._theirClock = Map()
-    this._ourClock = Map()
+    this._theirClock = {}
+    this._ourClock = {}
     this._docChangedHandler = this.docChanged.bind(this)
   }
 
@@ -58,8 +68,8 @@ class Connection {
   }
 
   sendMsg (docId, clock, changes) {
-    const msg = {docId, clock: clock.toJS()}
-    this._ourClock = clockUnion(this._ourClock, docId, clock)
+    const msg = {docId, clock}
+    clockUnion(this._ourClock, docId, clock)
     if (changes) msg.changes = changes
     this._sendMsg(msg)
   }
@@ -67,18 +77,18 @@ class Connection {
   maybeSendChanges (docId) {
     const doc = this._docSet.getDoc(docId)
     const state = Automerge.Frontend.getBackendState(doc)
-    const clock = fromJS(Automerge.Backend.getClock(state))
+    const clock = Automerge.Backend.getClock(state)
 
-    if (this._theirClock.has(docId)) {
-      const changes = Automerge.Backend.getChanges(state, this._theirClock.get(docId).toJS())
+    if (this._theirClock[docId]) {
+      const changes = Automerge.Backend.getChanges(state, this._theirClock[docId])
       if (changes.length > 0) {
-        this._theirClock = clockUnion(this._theirClock, docId, clock)
+        clockUnion(this._theirClock, docId, clock)
         this.sendMsg(docId, clock, changes)
         return
       }
     }
 
-    if (!clock.equals(this._ourClock.get(docId, Map()))) this.sendMsg(docId, clock)
+    if (!clockEqual(clock, this._ourClock[docId] || {})) this.sendMsg(docId, clock)
   }
 
   // Callback that is called by the docSet whenever a document is changed
@@ -90,7 +100,7 @@ class Connection {
                           'Are you trying to sync a snapshot from the history?')
     }
 
-    if (!lessOrEqual(this._ourClock.get(docId, Map()), fromJS(clock))) {
+    if (!lessOrEqual(this._ourClock[docId] || {}, clock)) {
       throw new RangeError('Cannot pass an old state object to a connection')
     }
 
@@ -99,18 +109,18 @@ class Connection {
 
   receiveMsg (msg) {
     if (msg.clock) {
-      this._theirClock = clockUnion(this._theirClock, msg.docId, fromJS(msg.clock))
+      clockUnion(this._theirClock, msg.docId, msg.clock)
     }
     if (msg.changes) {
-      return this._docSet.applyChanges(msg.docId, fromJS(msg.changes))
+      return this._docSet.applyChanges(msg.docId, msg.changes)
     }
 
     if (this._docSet.getDoc(msg.docId)) {
       this.maybeSendChanges(msg.docId)
-    } else if (!this._ourClock.has(msg.docId)) {
+    } else if (!this._ourClock[msg.docId]) {
       // If the remote node has data that we don't, immediately ask for it.
       // TODO should we sometimes exercise restraint in what we ask for?
-      this.sendMsg(msg.docId, Map())
+      this.sendMsg(msg.docId, {})
     }
 
     return this._docSet.getDoc(msg.docId)

@@ -1,42 +1,41 @@
-const { Map, Set } = require('immutable')
 const Automerge = require('../node_modules/automerge/src/automerge')
 
 class DocSet {
   constructor () {
-    this.docs = Map()
-    this.handlers = Set()
+    this.docs = {}
+    this.handlers = []
   }
 
   get docIds () {
-    return this.docs.keys()
+    return Object.keys(this.docs)
   }
 
   getDoc (docId) {
-    return this.docs.get(docId)
+    return this.docs[docId]
   }
 
   removeDoc (docId) {
-    this.docs = this.docs.delete(docId)
+    delete this.docs[docId]
   }
 
   setDoc (docId, doc) {
-    this.docs = this.docs.set(docId, doc)
-    this.handlers.forEach(handler => handler(docId, doc))
+    this.docs[docId] = doc
+    for (let handler of this.handlers) handler(docId, doc)
   }
 
   applyChanges (docId, changes) {
-    let doc = this.docs.get(docId) || Automerge.init()
+    let doc = this.docs[docId] || Automerge.init()
     doc = Automerge.applyChanges(doc, changes)
     this.setDoc(docId, doc)
     return doc
   }
 
   registerHandler (handler) {
-    this.handlers = this.handlers.add(handler)
+    this.handlers.push(handler)
   }
 
   unregisterHandler (handler) {
-    this.handlers = this.handlers.remove(handler)
+    this.handlers = this.handlers.filter(h => h !== handler)
   }
 }
 
